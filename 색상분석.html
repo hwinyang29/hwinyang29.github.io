@@ -1,0 +1,2944 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>일러스트 색상 비율 분석기 | PaletteView</title>
+  <!-- Pretendard Web Font -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <!-- Cropper.js for Image Cropping & Rotation -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+  <style>
+    :root {
+      --bg-body: #111215;
+      --bg-panel: #181a20;
+      --bg-card: #21242d;
+      --bg-card-hover: #292d38;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-color-light: rgba(255, 255, 255, 0.16);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-sub: #6b7280;
+      --accent-color: #6366f1;
+      --accent-hover: #4f46e5;
+      --eyedropper-color: #ec4899;
+      --sidebar-width: 270px;
+      --right-panel-width: 350px;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation Bar */
+    header {
+      height: 56px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.3px;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #ec4899, #8b5cf6, #3b82f6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      user-select: none;
+    }
+
+    .btn-primary {
+      background: var(--accent-color);
+      color: white;
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      border-color: var(--border-color);
+      color: var(--text-main);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-color-light);
+    }
+
+    /* App Layout */
+    .app-layout {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 56px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Left Sidebar: Timeline History */
+    .sidebar-history {
+      width: var(--sidebar-width);
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .panel-header {
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .panel-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .header-btns-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .panel-count {
+      font-size: 0.75rem;
+      background: var(--bg-card);
+      color: var(--text-muted);
+      padding: 2px 7px;
+      border-radius: 12px;
+    }
+
+    .btn-add-timeline {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: var(--accent-color);
+      border: none;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      line-height: 1;
+    }
+    .btn-add-timeline:hover {
+      background: var(--accent-hover);
+      transform: scale(1.08);
+    }
+
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history-list::-webkit-scrollbar,
+    .right-panel::-webkit-scrollbar,
+    .editor-body::-webkit-scrollbar {
+      width: 6px;
+    }
+    .history-list::-webkit-scrollbar-thumb,
+    .right-panel::-webkit-scrollbar-thumb,
+    .editor-body::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.12);
+      border-radius: 3px;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px;
+      border-radius: 10px;
+      background: var(--bg-card);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .history-item:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-color-light);
+    }
+    .history-item.active {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.12);
+    }
+
+    .history-thumb {
+      width: 52px;
+      height: 52px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: #0d0e11;
+      flex-shrink: 0;
+    }
+
+    .history-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .history-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+
+    .history-time {
+      font-size: 0.72rem;
+      color: var(--text-sub);
+      margin-bottom: 6px;
+    }
+
+    .history-mini-palette {
+      display: flex;
+      height: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .history-mini-slice {
+      height: 100%;
+    }
+
+    .history-delete-btn {
+      opacity: 0;
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.6);
+      border: none;
+      color: #ef4444;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .history-item:hover .history-delete-btn {
+      opacity: 1;
+    }
+    .history-delete-btn:hover {
+      background: #ef4444;
+      color: white;
+    }
+
+    .history-empty {
+      padding: 30px 16px;
+      text-align: center;
+      color: var(--text-sub);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    /* Center Stage: Image Viewer */
+    .center-stage {
+      flex: 1;
+      background: #090a0d;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .canvas-bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 24px 24px;
+      pointer-events: none;
+    }
+
+    /* Tight-fitting Image Container */
+    .image-container {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 90%;
+      max-height: 85%;
+      border-radius: var(--radius);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      transition: box-shadow 0.3s ease;
+      z-index: 2;
+    }
+
+    .main-image {
+      max-width: 100%;
+      max-height: calc(100vh - 160px);
+      object-fit: contain;
+      border-radius: var(--radius);
+      display: block;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Highlight Canvas Overlay - Exactly Matches Image Geometry with 0% Distortion */
+    #highlightCanvas {
+      position: absolute;
+      pointer-events: none;
+      border-radius: var(--radius);
+      display: none;
+      z-index: 3;
+      image-rendering: auto;
+    }
+
+    /* Eyedropper Magnifier Preview Box */
+    .magnifier-lens {
+      position: absolute;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(0,0,0,0.4);
+      pointer-events: none;
+      z-index: 99;
+      display: none;
+      overflow: hidden;
+      transform: translate(-50%, -50%);
+    }
+    .magnifier-crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      pointer-events: none;
+    }
+    .magnifier-crosshair::before, .magnifier-crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 0 2px #000;
+    }
+    .magnifier-crosshair::before {
+      top: 7px; left: 0; width: 16px; height: 2px;
+    }
+    .magnifier-crosshair::after {
+      top: 0; left: 7px; width: 2px; height: 16px;
+    }
+
+    .magnifier-badge {
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+
+    /* Empty Drop Zone */
+    .dropzone {
+      width: 100%;
+      max-width: 480px;
+      padding: 48px 24px;
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(26, 28, 34, 0.5);
+      backdrop-filter: blur(8px);
+      transition: all 0.25s ease;
+      z-index: 5;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .dropzone-icon {
+      font-size: 46px;
+      margin-bottom: 16px;
+      display: inline-block;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .dropzone-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .dropzone-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    .dropzone-tip {
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      background: rgba(255, 255, 255, 0.04);
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    /* Floating Bar for Current Image Info & Tools */
+    .image-floating-bar {
+      position: absolute;
+      bottom: 24px;
+      background: rgba(24, 26, 32, 0.92);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border-color-light);
+      border-radius: 30px;
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    }
+
+    .img-meta-tag {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .eyedropper-toggle-btn {
+      padding: 5px 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border-radius: 20px;
+      border: 1px solid var(--border-color-light);
+      background: var(--bg-card);
+      color: var(--text-main);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .eyedropper-toggle-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: #f472b6;
+    }
+    .eyedropper-toggle-btn.active {
+      background: linear-gradient(135deg, #ec4899, #db2777);
+      border-color: #f472b6;
+      color: white;
+      box-shadow: 0 0 14px rgba(236, 72, 153, 0.5);
+    }
+
+    /* ============================================================ */
+    /* 💧 Draggable Floating Eyedropper Popup                       */
+    /* ============================================================ */
+    .spot-floating-popup {
+      position: fixed;
+      width: 260px;
+      background: rgba(22, 24, 30, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(236, 72, 153, 0.35);
+      border-radius: 14px;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      z-index: 500;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .spot-popup-header {
+      padding: 10px 14px;
+      background: rgba(236, 72, 153, 0.12);
+      border-bottom: 1px solid rgba(236, 72, 153, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: grab;
+      user-select: none;
+    }
+    .spot-popup-header:active {
+      cursor: grabbing;
+    }
+
+    .spot-popup-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #f472b6;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .spot-popup-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .spot-popup-close:hover {
+      color: white;
+    }
+
+    .spot-popup-body {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .spot-popup-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .spot-popup-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+      flex-shrink: 0;
+    }
+
+    .spot-popup-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .spot-popup-ratio {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #f472b6;
+      line-height: 1.1;
+    }
+
+    .spot-popup-hex-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 3px;
+    }
+
+    .spot-popup-hex {
+      font-family: monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .spot-popup-copy-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-size: 10px;
+      cursor: pointer;
+      line-height: 1;
+      transition: all 0.2s;
+    }
+    .spot-popup-copy-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+      color: white;
+    }
+
+    .spot-popup-match-tag {
+      font-size: 0.72rem;
+      color: #a7f3d0;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .spot-popup-slider-wrap {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .spot-slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .spot-slider {
+      width: 100%;
+      height: 4px;
+      accent-color: #ec4899;
+      cursor: pointer;
+    }
+
+    .spot-popup-toggle {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    /* Right Panel: Color Palette & Ratio */
+    .right-panel {
+      width: var(--right-panel-width);
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+
+    /* Summary Card */
+    .color-summary-card {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .summary-heading {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .accuracy-badge {
+      font-size: 0.7rem;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    /* Color Ratio Bar Strip */
+    .color-ratio-bar {
+      height: 24px;
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+      margin-bottom: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .ratio-segment {
+      height: 100%;
+      transition: width 0.4s ease;
+      position: relative;
+      cursor: pointer;
+    }
+    .ratio-segment:hover {
+      filter: brightness(1.2);
+      z-index: 2;
+    }
+
+    .tuning-options {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: var(--bg-card);
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+    .tuning-label {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+    .tuning-select {
+      background: var(--bg-panel);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* ============================================================ */
+    /* 🎨 Palette Area Highlight Control (Requirement 1)            */
+    /* ============================================================ */
+    .palette-highlight-panel {
+      display: none;
+      padding: 14px 18px;
+      background: rgba(99, 102, 241, 0.08);
+      border-bottom: 1px solid rgba(99, 102, 241, 0.25);
+      animation: fadeIn 0.25s ease;
+    }
+
+    .palette-highlight-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .palette-highlight-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #a5b4fc;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .palette-highlight-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .palette-highlight-close:hover {
+      color: white;
+    }
+
+    .palette-highlight-body {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .palette-highlight-color-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .palette-highlight-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+    }
+
+    .palette-highlight-color-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .palette-highlight-slider-box {
+      background: var(--bg-card);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .palette-highlight-slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .palette-highlight-slider {
+      width: 100%;
+      height: 4px;
+      accent-color: var(--accent-color);
+      cursor: pointer;
+    }
+
+    .palette-highlight-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .palette-highlight-toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    /* Color Palette List */
+    .color-list {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .color-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      position: relative;
+    }
+    .color-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-color-light);
+      transform: translateX(3px);
+    }
+    .color-card.active-highlight {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.12);
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.25);
+    }
+
+    .color-circle {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+      flex-shrink: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+    }
+    .color-card:hover .color-circle {
+      transform: scale(1.08);
+    }
+
+    .color-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .color-details-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .color-ratio {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .color-hex-tag {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #e5e7eb;
+    }
+
+    .color-progress-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .color-progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease-out;
+    }
+
+    .card-action-hint {
+      font-size: 0.7rem;
+      color: var(--text-sub);
+      margin-top: 4px;
+    }
+    .color-card.active-highlight .card-action-hint {
+      color: #a5b4fc;
+      font-weight: 600;
+    }
+
+    .color-card-copy-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .color-card-copy-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: scale(1.08);
+    }
+
+    /* ============================================================ */
+    /* ➕ Add Image Modal                                           */
+    /* ============================================================ */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 10, 13, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .add-modal {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color-light);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
+      transform: scale(0.96);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-backdrop.open .add-modal {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .modal-close-btn:hover {
+      background: var(--bg-card);
+      color: var(--text-main);
+    }
+    .modal-body {
+      padding: 24px;
+    }
+
+    .modal-dropzone {
+      border: 2px dashed rgba(255, 255, 255, 0.16);
+      border-radius: 14px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(26, 28, 34, 0.4);
+      transition: all 0.25s;
+    }
+    .modal-dropzone:hover, .modal-dropzone.dragover {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.08);
+      transform: translateY(-2px);
+    }
+    .modal-drop-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      display: inline-block;
+    }
+    .modal-drop-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .modal-drop-sub {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* ============================================================ */
+    /* ✂️ Image Editor (Crop & Rotate) Modal Styles                 */
+    /* ============================================================ */
+    .editor-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 10, 13, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 1100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .editor-modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .editor-modal {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color-light);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 900px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
+      transform: scale(0.96);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .editor-modal-backdrop.open .editor-modal {
+      transform: scale(1);
+    }
+
+    .editor-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .editor-title-box {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .editor-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .editor-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .editor-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .editor-close-btn:hover {
+      background: var(--bg-card);
+      color: var(--text-main);
+    }
+
+    .editor-body {
+      flex: 1;
+      padding: 20px 24px;
+      background: #090a0d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      min-height: 380px;
+      max-height: calc(85vh - 160px);
+    }
+
+    .editor-crop-wrapper {
+      max-width: 100%;
+      max-height: 100%;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #editorImageToCrop {
+      display: block;
+      max-width: 100%;
+      max-height: 480px;
+    }
+
+    .cropper-view-box {
+      outline: 2px solid var(--accent-color);
+      outline-color: var(--accent-color);
+    }
+    .cropper-line {
+      background-color: var(--accent-color);
+    }
+    .cropper-point {
+      background-color: #ffffff;
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+    }
+    .cropper-modal {
+      background-color: #000000;
+      opacity: 0.7;
+    }
+
+    .editor-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .editor-controls-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .editor-tool-btn {
+      padding: 7px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .editor-tool-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-color-light);
+    }
+    .editor-tool-btn.active {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+    }
+
+    .editor-divider {
+      width: 1px;
+      height: 22px;
+      background: var(--border-color);
+      margin: 0 4px;
+    }
+
+    .editor-controls-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #10b981;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 2000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Processing Overlay */
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(13, 14, 17, 0.85);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      z-index: 30;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .loading-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border: 3px solid rgba(99, 102, 241, 0.2);
+      border-top-color: var(--accent-color);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #fileInput, #modalFileInput {
+      display: none;
+    }
+
+    @media (max-width: 960px) {
+      .sidebar-history {
+        width: 70px;
+      }
+      .panel-header, .history-info, .history-title, .history-time, .panel-count {
+        display: none;
+      }
+      .history-item {
+        justify-content: center;
+        padding: 6px;
+      }
+      .history-thumb {
+        width: 44px;
+        height: 44px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🎨</div>
+      <span>PaletteView</span>
+      <span style="font-size: 0.75rem; color: var(--text-sub); font-weight: normal; margin-left: 4px;">일러스트 정밀 색상 비율 & 스포이드</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" id="sampleBtn">
+        💡 샘플 일러스트 시험
+      </button>
+      <button class="btn btn-primary" id="uploadBtn">
+        📁 일러스트 열기
+      </button>
+      <input type="file" id="fileInput" accept="image/*" />
+      <input type="file" id="modalFileInput" accept="image/*" />
+    </div>
+  </header>
+
+  <!-- App Layout -->
+  <main class="app-layout">
+
+    <!-- Left Timeline Gallery -->
+    <aside class="sidebar-history">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>🕒 분석 타임라인</span>
+        </div>
+        <div class="header-btns-group">
+          <span class="panel-count" id="historyCount">0</span>
+          <!-- ➕ Add Button in Timeline Header -->
+          <button class="btn-add-timeline" id="openAddModalBtn" title="새 일러스트 추가">+</button>
+        </div>
+      </div>
+      <div class="history-list" id="historyList">
+        <div class="history-empty" id="historyEmpty">
+          이전에 분석한 이미지가<br />이곳에 차곡차곡 보관됩니다.
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center Image Stage -->
+    <section class="center-stage" id="dropArea">
+      <div class="canvas-bg-grid"></div>
+
+      <!-- Empty State / Dropzone -->
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-icon">🖼️</div>
+        <h2 class="dropzone-title">일러스트 파일을 여기에 놓아주세요</h2>
+        <p class="dropzone-desc">
+          파일을 끌어다 놓거나 클릭하여 업로드하세요.<br />
+          전체 픽셀 완전 보존 알고리즘으로 체감 색상 비율을 정확하게 계산합니다.
+        </p>
+        <div class="dropzone-tip">💡 클립보드 이미지 붙여넣기(Ctrl + V) 지원</div>
+      </div>
+
+      <!-- Main Image View -->
+      <div class="image-container" id="imageContainer" style="display: none;">
+        <img id="mainImage" class="main-image" alt="분석 대상 일러스트" />
+        <!-- Highlight mask canvas for smooth anti-aliased overlay -->
+        <canvas id="highlightCanvas"></canvas>
+        <!-- Eyedropper Magnifier Lens -->
+        <div class="magnifier-lens" id="magnifierLens">
+          <div class="magnifier-crosshair"></div>
+          <div class="magnifier-badge" id="magnifierBadge">#000000</div>
+        </div>
+      </div>
+
+      <!-- Floating Bar for Current Image Info & Tools -->
+      <div class="image-floating-bar" id="floatingBar" style="display: none;">
+        <div class="img-meta-tag" id="metaFileName">📄 파일명</div>
+        <div style="width: 1px; height: 12px; background: rgba(255,255,255,0.15);"></div>
+        
+        <!-- Eyedropper Tool Toggle Button -->
+        <button class="eyedropper-toggle-btn" id="eyedropperBtn" title="이미지의 특정 색상을 찍어 유사 계열 비율 감지">
+          <span>💧</span>
+          <span id="eyedropperBtnText">스포이드 켜기</span>
+        </button>
+
+        <div style="width: 1px; height: 12px; background: rgba(255,255,255,0.15);"></div>
+        <button class="btn btn-secondary" id="reEditBtn" style="padding: 4px 10px; font-size: 0.75rem;">
+          ✂️ 다시 편집 (자르기/회전)
+        </button>
+        <button class="btn btn-secondary" id="changeImgBtn" style="padding: 4px 10px; font-size: 0.75rem;">
+          다른 파일 열기
+        </button>
+      </div>
+
+      <!-- Loading Overlay -->
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p style="font-size: 0.9rem; color: var(--text-main);">고정밀 색상 분석 및 전체 픽셀 매핑 중...</p>
+      </div>
+    </section>
+
+    <!-- Right Color Analysis Panel -->
+    <aside class="right-panel">
+      <!-- Summary Card -->
+      <div class="color-summary-card">
+        <div class="summary-heading">
+          <span>전체 색상 구성 비율</span>
+          <span class="accuracy-badge">정밀 매핑 100%</span>
+        </div>
+        <div class="color-ratio-bar" id="ratioBarStrip" title="색상 구성 바 (클릭 시 해당 영역 강조)">
+          <!-- Dynamically filled segments -->
+        </div>
+
+        <div class="tuning-options">
+          <span class="tuning-label">유사색 통합 강도</span>
+          <select class="tuning-select" id="thresholdSelect">
+            <option value="16">섬세하게 (색상 분리)</option>
+            <option value="24" selected>표준 (자연스러운 통합)</option>
+            <option value="34">강하게 (주요 계열 중심)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- 🎨 Palette Highlight Tuning Control Panel (Requirement 1)    -->
+      <!-- ============================================================ -->
+      <div class="palette-highlight-panel" id="paletteHighlightPanel">
+        <div class="palette-highlight-header">
+          <div class="palette-highlight-title">
+            <span>✨ 색상 영역 강조 튜닝</span>
+          </div>
+          <button class="palette-highlight-close" id="paletteHighlightCloseBtn" title="강조 해제">✕</button>
+        </div>
+        <div class="palette-highlight-body">
+          <div class="palette-highlight-color-row">
+            <div class="palette-highlight-circle" id="palHlCircle"></div>
+            <div class="palette-highlight-color-name">
+              <span id="palHlHex">#000000</span>
+              <span id="palHlRatio" style="color: #a5b4fc;">(0.0%)</span>
+            </div>
+          </div>
+
+          <!-- Slider for tolerance tuning -->
+          <div class="palette-highlight-slider-box">
+            <div class="palette-highlight-slider-label">
+              <span>유사 감지 범위 (Delta E)</span>
+              <span id="palHlTolValue" style="color: #a5b4fc; font-weight: 700;">24</span>
+            </div>
+            <input type="range" class="palette-highlight-slider" id="palHlTolSlider" min="8" max="48" value="24" />
+          </div>
+
+          <!-- Anti-aliasing soft mask toggle -->
+          <div class="palette-highlight-toggle-row">
+            <label class="palette-highlight-toggle-label">
+              <input type="checkbox" id="palHlSoftToggle" checked />
+              <span>부드러운 경계 (안티앨리어싱)</span>
+            </label>
+            <span id="palHlLiveRatio" style="color: #34d399; font-weight: 600; font-size: 0.72rem;">0.0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Color List -->
+      <div class="color-list" id="colorList">
+        <div style="text-align: center; color: var(--text-sub); font-size: 0.85rem; padding: 40px 10px;">
+          일러스트를 추가하면<br />
+          정밀 색상 비율과 파레트가 표시됩니다.
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- 💧 Draggable Floating Eyedropper Popup                       -->
+  <!-- ============================================================ -->
+  <div class="spot-floating-popup" id="spotFloatingPopup">
+    <div class="spot-popup-header" id="spotPopupHeader">
+      <div class="spot-popup-title">
+        <span>💧 스포이드 색상 분석</span>
+      </div>
+      <button class="spot-popup-close" id="spotPopupClose" title="닫기">✕</button>
+    </div>
+    <div class="spot-popup-body">
+      <div class="spot-popup-row">
+        <div class="spot-popup-circle" id="spotPopupCircle"></div>
+        <div class="spot-popup-info">
+          <div class="spot-popup-ratio" id="spotPopupRatio">0.0%</div>
+          <div class="spot-popup-hex-wrap">
+            <span class="spot-popup-hex" id="spotPopupHex">#000000</span>
+            <button class="spot-popup-copy-btn" id="spotPopupCopyBtn" title="HEX 코드 복사">📋 복사</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="spot-popup-match-tag" id="spotPopupMatchTag">
+        팔레트 계열 점유율
+      </div>
+
+      <!-- Tolerance Tuning Slider -->
+      <div class="spot-popup-slider-wrap">
+        <div class="spot-slider-header">
+          <span>유사 감지 범위 (Delta E)</span>
+          <span id="spotSliderValText" style="color: #f472b6; font-weight: 700;">24</span>
+        </div>
+        <input type="range" id="spotPopupSlider" min="8" max="48" value="24" class="spot-slider" />
+      </div>
+
+      <!-- Soft Anti-Aliased Mask Toggle -->
+      <label class="spot-popup-toggle">
+        <input type="checkbox" id="spotPopupMaskToggle" checked />
+        <span>분포 영역 부드럽게 강조</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ➕ New Image Upload Modal Dialog                             -->
+  <!-- ============================================================ -->
+  <div class="modal-backdrop" id="addModal">
+    <div class="add-modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🖼️</span>
+          <span>새 일러스트 추가</span>
+        </div>
+        <button class="modal-close-btn" id="addModalCloseBtn" title="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-dropzone" id="modalDropzone">
+          <div class="modal-drop-icon">📁</div>
+          <div class="modal-drop-title">파일을 여기에 끌어다 놓으세요</div>
+          <div class="modal-drop-sub">또는 아래 버튼을 눌러 컴퓨터에서 선택하세요</div>
+          <button class="btn btn-primary" id="modalBrowseBtn">
+            컴퓨터에서 파일 찾기
+          </button>
+        </div>
+        <div style="text-align: center; margin-top: 14px;">
+          <span class="dropzone-tip">💡 캡처 후 <strong>Ctrl + V</strong> 로 바로 붙여넣기 가능</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ✂️ Image Editor Modal (Cropping & Rotation)                   -->
+  <!-- ============================================================ -->
+  <div class="editor-modal-backdrop" id="editorModal">
+    <div class="editor-modal">
+      <div class="editor-header">
+        <div class="editor-title-box">
+          <div class="editor-title">
+            <span>✂️</span>
+            <span>일러스트 편집</span>
+          </div>
+          <div class="editor-subtitle">분석하고 싶은 영역을 자르거나(Crop), 이미지 방향을 회전하세요.</div>
+        </div>
+        <button class="editor-close-btn" id="editorCloseBtn" title="닫기">✕</button>
+      </div>
+
+      <div class="editor-body">
+        <div class="editor-crop-wrapper">
+          <img id="editorImageToCrop" src="" alt="편집 대상" />
+        </div>
+      </div>
+
+      <div class="editor-footer">
+        <div class="editor-controls-left">
+          <button class="editor-tool-btn" id="rotateLeftBtn" title="반시계방향 90도 회전">↺ 좌회전</button>
+          <button class="editor-tool-btn" id="rotateRightBtn" title="시계방향 90도 회전">↻ 우회전</button>
+          <button class="editor-tool-btn" id="flipHBtn" title="좌우 반전">⇋ 좌우반전</button>
+
+          <div class="editor-divider"></div>
+
+          <button class="editor-tool-btn active" data-ratio="free" id="ratioFreeBtn">자유 비율</button>
+          <button class="editor-tool-btn" data-ratio="1" id="ratioSquareBtn">1:1</button>
+          <button class="editor-tool-btn" data-ratio="1.3333" id="ratio43Btn">4:3</button>
+          <button class="editor-tool-btn" data-ratio="1.7777" id="ratio169Btn">16:9</button>
+          <button class="editor-tool-btn" id="resetCropBtn" title="자르기 영역 초기화">전체 선택</button>
+        </div>
+
+        <div class="editor-controls-right">
+          <button class="btn btn-secondary" id="skipEditBtn">원본 그대로 분석</button>
+          <button class="btn btn-primary" id="applyEditBtn">✨ 편집 완료 및 색상 분석</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Message -->
+  <div class="toast" id="toast">
+    <span>📋</span>
+    <span id="toastMsg">클립보드에 복사되었습니다.</span>
+  </div>
+
+  <!-- Cropper.js Script -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+  <script>
+    // --- State Management ---
+    let currentImageElement = null;
+    let currentRawImageSrc = null;
+    let currentProcessedSrc = null;
+    let currentFileName = '';
+    let historyItems = [];
+    let cropper = null;
+    let flipHState = 1;
+
+    // Eyedropper & Mask Highlight State
+    let isEyedropperActive = false;
+    let activeSpotResult = null;
+    let activeHighlightCluster = -1; // -1: none, 0..N: palette cluster index
+    let analysisCanvas = null;
+    let analysisCtx = null;
+    let analysisImageData = null;
+    let pixelClusterIndexMap = null;
+    let currentPalette = [];
+
+    const MAX_HISTORY = 16;
+    const STORAGE_KEY = 'illust_palette_history_v6';
+
+    // Elements
+    const fileInput = document.getElementById('fileInput');
+    const modalFileInput = document.getElementById('modalFileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const changeImgBtn = document.getElementById('changeImgBtn');
+    const reEditBtn = document.getElementById('reEditBtn');
+    const sampleBtn = document.getElementById('sampleBtn');
+    const dropArea = document.getElementById('dropArea');
+    const dropzone = document.getElementById('dropzone');
+    const imageContainer = document.getElementById('imageContainer');
+    const mainImage = document.getElementById('mainImage');
+    const floatingBar = document.getElementById('floatingBar');
+    const metaFileName = document.getElementById('metaFileName');
+    const ratioBarStrip = document.getElementById('ratioBarStrip');
+    const colorList = document.getElementById('colorList');
+    const historyList = document.getElementById('historyList');
+    const historyCount = document.getElementById('historyCount');
+    const historyEmpty = document.getElementById('historyEmpty');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const thresholdSelect = document.getElementById('thresholdSelect');
+    const toast = document.getElementById('toast');
+    const toastMsg = document.getElementById('toastMsg');
+
+    // Add Modal Elements
+    const openAddModalBtn = document.getElementById('openAddModalBtn');
+    const addModal = document.getElementById('addModal');
+    const addModalCloseBtn = document.getElementById('addModalCloseBtn');
+    const modalDropzone = document.getElementById('modalDropzone');
+    const modalBrowseBtn = document.getElementById('modalBrowseBtn');
+
+    // Eyedropper Elements
+    const eyedropperBtn = document.getElementById('eyedropperBtn');
+    const eyedropperBtnText = document.getElementById('eyedropperBtnText');
+    const magnifierLens = document.getElementById('magnifierLens');
+    const magnifierBadge = document.getElementById('magnifierBadge');
+    const highlightCanvas = document.getElementById('highlightCanvas');
+
+    // Floating Popup Elements
+    const spotFloatingPopup = document.getElementById('spotFloatingPopup');
+    const spotPopupHeader = document.getElementById('spotPopupHeader');
+    const spotPopupClose = document.getElementById('spotPopupClose');
+    const spotPopupCircle = document.getElementById('spotPopupCircle');
+    const spotPopupRatio = document.getElementById('spotPopupRatio');
+    const spotPopupHex = document.getElementById('spotPopupHex');
+    const spotPopupCopyBtn = document.getElementById('spotPopupCopyBtn');
+    const spotPopupMatchTag = document.getElementById('spotPopupMatchTag');
+    const spotPopupSlider = document.getElementById('spotPopupSlider');
+    const spotSliderValText = document.getElementById('spotSliderValText');
+    const spotPopupMaskToggle = document.getElementById('spotPopupMaskToggle');
+
+    // Palette Highlight Panel Elements (Requirement 1)
+    const paletteHighlightPanel = document.getElementById('paletteHighlightPanel');
+    const paletteHighlightCloseBtn = document.getElementById('paletteHighlightCloseBtn');
+    const palHlCircle = document.getElementById('palHlCircle');
+    const palHlHex = document.getElementById('palHlHex');
+    const palHlRatio = document.getElementById('palHlRatio');
+    const palHlTolSlider = document.getElementById('palHlTolSlider');
+    const palHlTolValue = document.getElementById('palHlTolValue');
+    const palHlSoftToggle = document.getElementById('palHlSoftToggle');
+    const palHlLiveRatio = document.getElementById('palHlLiveRatio');
+
+    // Editor Modal Elements
+    const editorModal = document.getElementById('editorModal');
+    const editorCloseBtn = document.getElementById('editorCloseBtn');
+    const editorImageToCrop = document.getElementById('editorImageToCrop');
+    const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+    const rotateRightBtn = document.getElementById('rotateRightBtn');
+    const flipHBtn = document.getElementById('flipHBtn');
+    const resetCropBtn = document.getElementById('resetCropBtn');
+    const skipEditBtn = document.getElementById('skipEditBtn');
+    const applyEditBtn = document.getElementById('applyEditBtn');
+    const ratioBtns = document.querySelectorAll('[data-ratio]');
+
+    // --- Toast Notification ---
+    let toastTimeout;
+    function showToast(text) {
+      toastMsg.textContent = text;
+      toast.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    // --- Smoothstep Math for High-Quality Anti-Aliasing ---
+    function smoothstep(edge0, edge1, x) {
+      const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    }
+
+    // --- CIELAB Color Science ---
+    function rgbToLab(r, g, b) {
+      let sr = r / 255;
+      let sg = g / 255;
+      let sb = b / 255;
+
+      sr = (sr > 0.04045) ? Math.pow((sr + 0.055) / 1.055, 2.4) : sr / 12.92;
+      sg = (sg > 0.04045) ? Math.pow((sg + 0.055) / 1.055, 2.4) : sg / 12.92;
+      sb = (sb > 0.04045) ? Math.pow((sb + 0.055) / 1.055, 2.4) : sb / 12.92;
+
+      let x = (sr * 0.4124 + sg * 0.3576 + sb * 0.1805) / 0.95047;
+      let y = (sr * 0.2126 + sg * 0.7152 + sb * 0.0722) / 1.00000;
+      let z = (sr * 0.0193 + sg * 0.1192 + sb * 0.9505) / 1.08883;
+
+      const f = (t) => (t > 0.008856) ? Math.cbrt(t) : (7.787 * t) + (16 / 116);
+      let fx = f(x), fy = f(y), fz = f(z);
+
+      let L = (116 * fy) - 16;
+      let A = 500 * (fx - fy);
+      let B = 200 * (fy - fz);
+      return [L, A, B];
+    }
+
+    function deltaE(lab1, lab2) {
+      const dL = lab1[0] - lab2[0];
+      const da = lab1[1] - lab2[1];
+      const db = lab1[2] - lab2[2];
+      return Math.sqrt(dL * dL + da * da + db * db);
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(x => {
+        const hex = Math.round(Math.max(0, Math.min(255, x))).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      }).join('').toUpperCase();
+    }
+
+    // ============================================================
+    // 🎯 High-Accuracy Color Distribution Algorithm
+    // ============================================================
+    function analyzeImageColorsAccurate(imgElement, distanceThreshold = 24) {
+      const maxDim = 320;
+      const scale = Math.min(1, maxDim / Math.max(imgElement.naturalWidth || 500, imgElement.naturalHeight || 500));
+      const width = Math.max(1, Math.round((imgElement.naturalWidth || 500) * scale));
+      const height = Math.max(1, Math.round((imgElement.naturalHeight || 500) * scale));
+
+      analysisCanvas = document.createElement('canvas');
+      analysisCanvas.width = width;
+      analysisCanvas.height = height;
+      analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+      analysisCtx.drawImage(imgElement, 0, 0, width, height);
+
+      analysisImageData = analysisCtx.getImageData(0, 0, width, height).data;
+      const data = analysisImageData;
+
+      const numPixels = width * height;
+      pixelClusterIndexMap = new Int16Array(numPixels).fill(-1);
+
+      // Color Binning
+      const binCounts = new Map();
+      let totalValidPixels = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i + 3];
+        if (a < 64) continue;
+
+        totalValidPixels++;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        const qr = (r >> 4) << 4;
+        const qg = (g >> 4) << 4;
+        const qb = (b >> 4) << 4;
+        const binKey = (qr << 16) | (qg << 8) | qb;
+
+        const bin = binCounts.get(binKey);
+        if (bin) {
+          bin.count++;
+          bin.sumR += r;
+          bin.sumG += g;
+          bin.sumB += b;
+        } else {
+          binCounts.set(binKey, { count: 1, sumR: r, sumG: g, sumB: b });
+        }
+      }
+
+      if (totalValidPixels === 0) return [];
+
+      const candidatePeaks = [];
+      binCounts.forEach((val) => {
+        const r = Math.round(val.sumR / val.count);
+        const g = Math.round(val.sumG / val.count);
+        const b = Math.round(val.sumB / val.count);
+        candidatePeaks.push({
+          r, g, b,
+          lab: rgbToLab(r, g, b),
+          count: val.count
+        });
+      });
+
+      candidatePeaks.sort((a, b) => b.count - a.count);
+
+      // Dominant cluster selection
+      const dominantClusters = [];
+      for (const peak of candidatePeaks) {
+        let isMerged = false;
+        for (const cluster of dominantClusters) {
+          if (deltaE(peak.lab, cluster.lab) < distanceThreshold) {
+            cluster.pixelHits += peak.count;
+            cluster.accumR += peak.r * peak.count;
+            cluster.accumG += peak.g * peak.count;
+            cluster.accumB += peak.b * peak.count;
+            cluster.accumCount += peak.count;
+            isMerged = true;
+            break;
+          }
+        }
+        if (!isMerged) {
+          dominantClusters.push({
+            r: peak.r,
+            g: peak.g,
+            b: peak.b,
+            lab: peak.lab,
+            pixelHits: peak.count,
+            accumR: peak.r * peak.count,
+            accumG: peak.g * peak.count,
+            accumB: peak.b * peak.count,
+            accumCount: peak.count
+          });
+        }
+      }
+
+      for (const c of dominantClusters) {
+        c.r = Math.round(c.accumR / c.accumCount);
+        c.g = Math.round(c.accumG / c.accumCount);
+        c.b = Math.round(c.accumB / c.accumCount);
+        c.lab = rgbToLab(c.r, c.g, c.b);
+      }
+
+      dominantClusters.sort((a, b) => b.pixelHits - a.pixelHits);
+      const topClusters = dominantClusters.slice(0, 8);
+
+      // 100% Nearest Cluster Mapping
+      const clusterCounts = new Array(topClusters.length).fill(0);
+      const clusterSumR = new Array(topClusters.length).fill(0);
+      const clusterSumG = new Array(topClusters.length).fill(0);
+      const clusterSumB = new Array(topClusters.length).fill(0);
+
+      for (let i = 0; i < data.length; i += 4) {
+        const pixelIdx = i >> 2;
+        const a = data[i + 3];
+        if (a < 64) continue;
+
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const lab = rgbToLab(r, g, b);
+
+        let bestIndex = 0;
+        let minDiff = Infinity;
+
+        for (let j = 0; j < topClusters.length; j++) {
+          const diff = deltaE(lab, topClusters[j].lab);
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestIndex = j;
+          }
+        }
+
+        pixelClusterIndexMap[pixelIdx] = bestIndex;
+        clusterCounts[bestIndex]++;
+        clusterSumR[bestIndex] += r;
+        clusterSumG[bestIndex] += g;
+        clusterSumB[bestIndex] += b;
+      }
+
+      const rawPalette = [];
+      for (let j = 0; j < topClusters.length; j++) {
+        const count = clusterCounts[j];
+        if (count === 0) continue;
+
+        const avgR = Math.round(clusterSumR[j] / count);
+        const avgG = Math.round(clusterSumG[j] / count);
+        const avgB = Math.round(clusterSumB[j] / count);
+        const percent = (count / totalValidPixels) * 100;
+
+        rawPalette.push({
+          clusterIndex: j,
+          r: avgR,
+          g: avgG,
+          b: avgB,
+          hex: rgbToHex(avgR, avgG, avgB),
+          percentNum: percent,
+          percent: percent.toFixed(1),
+          count: count,
+          totalPixels: totalValidPixels,
+          centerLab: rgbToLab(avgR, avgG, avgB)
+        });
+      }
+
+      rawPalette.sort((a, b) => b.percentNum - a.percentNum);
+      currentPalette = rawPalette;
+      return currentPalette;
+    }
+
+    // ============================================================
+    // 🎨 Render Palette & Interactive Card Click
+    // ============================================================
+    function renderPalette(colors) {
+      ratioBarStrip.innerHTML = '';
+      colors.forEach(col => {
+        const seg = document.createElement('div');
+        seg.className = 'ratio-segment';
+        seg.style.width = `${col.percent}%`;
+        seg.style.backgroundColor = col.hex;
+        seg.title = `${col.hex} (${col.percent}%) - 클릭하여 영역 강조`;
+        
+        seg.addEventListener('click', () => {
+          toggleClusterHighlight(col.clusterIndex);
+        });
+        ratioBarStrip.appendChild(seg);
+      });
+
+      colorList.innerHTML = '';
+      colors.forEach(col => {
+        const card = document.createElement('div');
+        card.className = `color-card ${activeHighlightCluster === col.clusterIndex ? 'active-highlight' : ''}`;
+        card.id = `paletteCard_${col.clusterIndex}`;
+        
+        card.innerHTML = `
+          <!-- 원모양의 색상 -->
+          <div class="color-circle" style="background-color: ${col.hex};"></div>
+
+          <div class="color-details">
+            <div class="color-details-top">
+              <span class="color-ratio">${col.percent}%</span>
+              <span class="color-hex-tag">${col.hex}</span>
+            </div>
+            <div class="color-progress-track">
+              <div class="color-progress-fill" style="width: ${col.percent}%; background-color: ${col.hex};"></div>
+            </div>
+            <div class="card-action-hint">${activeHighlightCluster === col.clusterIndex ? '✨ 이미지 영역 강조 중' : '클릭하여 이미지 영역 강조'}</div>
+          </div>
+
+          <!-- 우측 전용 헥사코드 복사 버튼 -->
+          <button class="color-card-copy-btn" title="HEX 코드 복사">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        `;
+
+        // Card Click: Highlights the color area in the illustration
+        card.addEventListener('click', () => {
+          toggleClusterHighlight(col.clusterIndex);
+        });
+
+        // Copy Button Click: ONLY copies the hex code without toggling mask!
+        const copyBtn = card.querySelector('.color-card-copy-btn');
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(col.hex);
+          showToast(`${col.hex} 색상 코드가 복사되었습니다! 📋`);
+        });
+
+        colorList.appendChild(card);
+      });
+    }
+
+    // ============================================================
+    // 📐 Perfect Aspect-Ratio Synchronization (Requirement 2)
+    // ============================================================
+    // Fixes the flattening/distortion by binding highlightCanvas 1:1 to mainImage rendered pixels
+    function updateCanvasGeometry() {
+      if (!mainImage || !highlightCanvas || !analysisCanvas) return;
+
+      const imgW = mainImage.clientWidth;
+      const imgH = mainImage.clientHeight;
+
+      if (imgW === 0 || imgH === 0) return;
+
+      // Match CSS dimension exactly with mainImage rendered box
+      highlightCanvas.style.position = 'absolute';
+      highlightCanvas.style.width = `${imgW}px`;
+      highlightCanvas.style.height = `${imgH}px`;
+      highlightCanvas.style.left = `${mainImage.offsetLeft}px`;
+      highlightCanvas.style.top = `${mainImage.offsetTop}px`;
+
+      // Match internal canvas pixel resolution 1:1 with analysisCanvas aspect ratio
+      highlightCanvas.width = analysisCanvas.width;
+      highlightCanvas.height = analysisCanvas.height;
+    }
+
+    // Toggle Palette Cluster Area Highlighting
+    function toggleClusterHighlight(clusterIndex) {
+      closeSpotPopup();
+
+      if (activeHighlightCluster === clusterIndex) {
+        // Untoggle
+        activeHighlightCluster = -1;
+        highlightCanvas.style.display = 'none';
+        paletteHighlightPanel.style.display = 'none';
+      } else {
+        activeHighlightCluster = clusterIndex;
+        openPaletteHighlightPanel(clusterIndex);
+      }
+
+      // Update card styles
+      document.querySelectorAll('.color-card').forEach(c => c.classList.remove('active-highlight'));
+      const activeCard = document.getElementById(`paletteCard_${activeHighlightCluster}`);
+      if (activeCard) {
+        activeCard.classList.add('active-highlight');
+      }
+    }
+
+    // Open Palette Highlight Tuning Panel (Requirement 1)
+    function openPaletteHighlightPanel(clusterIndex) {
+      const item = currentPalette.find(p => p.clusterIndex === clusterIndex);
+      if (!item) return;
+
+      palHlCircle.style.backgroundColor = item.hex;
+      palHlHex.textContent = item.hex;
+      palHlRatio.textContent = `(${item.percent}%)`;
+      palHlLiveRatio.textContent = `${item.percent}%`;
+      paletteHighlightPanel.style.display = 'block';
+
+      renderAntiAliasedClusterMask(clusterIndex);
+    }
+
+    function closePaletteHighlightPanel() {
+      activeHighlightCluster = -1;
+      paletteHighlightPanel.style.display = 'none';
+      highlightCanvas.style.display = 'none';
+      document.querySelectorAll('.color-card').forEach(c => c.classList.remove('active-highlight'));
+    }
+
+    paletteHighlightCloseBtn.addEventListener('click', closePaletteHighlightPanel);
+
+    // Palette Highlight Tolerance Slider
+    palHlTolSlider.addEventListener('input', () => {
+      const tol = parseInt(palHlTolSlider.value, 10);
+      palHlTolValue.textContent = tol;
+      if (activeHighlightCluster >= 0) {
+        renderAntiAliasedClusterMask(activeHighlightCluster);
+      }
+    });
+
+    // Palette Highlight Soft Mask Toggle
+    palHlSoftToggle.addEventListener('change', () => {
+      if (activeHighlightCluster >= 0) {
+        renderAntiAliasedClusterMask(activeHighlightCluster);
+      }
+    });
+
+    // Anti-Aliased Mask for Palette Cluster with Tolerance & Smoothstep (Requirement 1 & 2)
+    function renderAntiAliasedClusterMask(clusterIndex) {
+      if (!analysisImageData || !pixelClusterIndexMap) return;
+
+      const targetPaletteItem = currentPalette.find(p => p.clusterIndex === clusterIndex);
+      if (!targetPaletteItem) return;
+
+      const targetLab = targetPaletteItem.centerLab;
+      const w = analysisCanvas.width;
+      const h = analysisCanvas.height;
+      const data = analysisImageData;
+
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = w;
+      maskCanvas.height = h;
+      const maskCtx = maskCanvas.getContext('2d');
+      const maskImgData = maskCtx.createImageData(w, h);
+      const mData = maskImgData.data;
+
+      const tolerance = parseInt(palHlTolSlider.value, 10);
+      const isSoft = palHlSoftToggle.checked;
+      const feather = isSoft ? 7 : 0.5;
+
+      let matchingCount = 0;
+      let totalValidCount = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i + 3];
+        if (a < 64) continue;
+
+        totalValidCount++;
+        const pr = data[i];
+        const pg = data[i + 1];
+        const pb = data[i + 2];
+        const pLab = rgbToLab(pr, pg, pb);
+
+        const diff = deltaE(pLab, targetLab);
+        const isWithinTol = diff <= tolerance;
+        if (isWithinTol) matchingCount++;
+
+        // Smoothstep Anti-Aliased weight (0.0 to 1.0)
+        let weight = 0;
+        if (isSoft) {
+          weight = smoothstep(tolerance + feather, tolerance - feather, diff);
+        } else {
+          weight = isWithinTol ? 1.0 : 0.0;
+        }
+
+        const gray = Math.round(0.299 * pr + 0.587 * pg + 0.114 * pb) * 0.25;
+
+        mData[i] = Math.round(pr * weight + gray * (1 - weight));
+        mData[i + 1] = Math.round(pg * weight + gray * (1 - weight));
+        mData[i + 2] = Math.round(pb * weight + gray * (1 - weight));
+        mData[i + 3] = Math.round(255 * weight + 215 * (1 - weight));
+      }
+
+      maskCtx.putImageData(maskImgData, 0, 0);
+
+      const liveRatio = totalValidCount > 0 ? ((matchingCount / totalValidCount) * 100).toFixed(1) : '0.0';
+      palHlLiveRatio.textContent = `${liveRatio}% (범위 내)`;
+
+      // Draw onto highlightCanvas with 100% distortion-free geometry
+      updateCanvasGeometry();
+      const ctx = highlightCanvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.clearRect(0, 0, highlightCanvas.width, highlightCanvas.height);
+      ctx.drawImage(maskCanvas, 0, 0, highlightCanvas.width, highlightCanvas.height);
+      highlightCanvas.style.display = 'block';
+    }
+
+    // Anti-Aliased Mask for Eyedropper Spot Click (Requirement 2)
+    function renderAntiAliasedSpotMask(targetR, targetG, targetB, tolerance) {
+      if (!analysisImageData) return;
+
+      const targetLab = rgbToLab(targetR, targetG, targetB);
+      const w = analysisCanvas.width;
+      const h = analysisCanvas.height;
+      const data = analysisImageData;
+
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = w;
+      maskCanvas.height = h;
+      const maskCtx = maskCanvas.getContext('2d');
+      const maskImgData = maskCtx.createImageData(w, h);
+      const mData = maskImgData.data;
+
+      const isSoft = spotPopupMaskToggle.checked;
+      const feather = isSoft ? 6 : 0.5;
+      let matchingPixels = 0;
+      let totalValidPixels = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const a = data[i + 3];
+        if (a < 64) continue;
+
+        totalValidPixels++;
+        const pr = data[i];
+        const pg = data[i + 1];
+        const pb = data[i + 2];
+        const pLab = rgbToLab(pr, pg, pb);
+
+        const diff = deltaE(pLab, targetLab);
+        const isMatch = diff <= tolerance;
+        if (isMatch) {
+          matchingPixels++;
+        }
+
+        // Smoothstep Anti-Aliased weight
+        const weight = isSoft ? smoothstep(tolerance + feather, tolerance - feather, diff) : (isMatch ? 1.0 : 0.0);
+        const gray = Math.round(0.299 * pr + 0.587 * pg + 0.114 * pb) * 0.25;
+
+        mData[i] = Math.round(pr * weight + gray * (1 - weight));
+        mData[i + 1] = Math.round(pg * weight + gray * (1 - weight));
+        mData[i + 2] = Math.round(pb * weight + gray * (1 - weight));
+        mData[i + 3] = Math.round(255 * weight + 215 * (1 - weight));
+      }
+
+      maskCtx.putImageData(maskImgData, 0, 0);
+
+      const ratio = totalValidPixels > 0 ? (matchingPixels / totalValidPixels) * 100 : 0;
+      activeSpotResult.maskCanvas = maskCanvas;
+      activeSpotResult.toleranceRatio = ratio.toFixed(1);
+
+      if (spotPopupMaskToggle.checked) {
+        // Draw onto highlightCanvas with 100% distortion-free geometry
+        updateCanvasGeometry();
+        const ctx = highlightCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.clearRect(0, 0, highlightCanvas.width, highlightCanvas.height);
+        ctx.drawImage(maskCanvas, 0, 0, highlightCanvas.width, highlightCanvas.height);
+        highlightCanvas.style.display = 'block';
+      } else {
+        highlightCanvas.style.display = 'none';
+      }
+
+      return ratio;
+    }
+
+    // ============================================================
+    // 💧 Eyedropper & Floating Draggable Popup
+    // ============================================================
+    function toggleEyedropper(forceState = null) {
+      isEyedropperActive = forceState !== null ? forceState : !isEyedropperActive;
+      if (isEyedropperActive) {
+        eyedropperBtn.classList.add('active');
+        eyedropperBtnText.textContent = '스포이드 사용 중 (이미지 클릭)';
+        mainImage.style.cursor = 'crosshair';
+        showToast('이미지에서 원하는 색상을 클릭해보세요! 💧');
+      } else {
+        eyedropperBtn.classList.remove('active');
+        eyedropperBtnText.textContent = '스포이드 켜기';
+        mainImage.style.cursor = 'default';
+        magnifierLens.style.display = 'none';
+      }
+    }
+
+    eyedropperBtn.addEventListener('click', () => toggleEyedropper());
+
+    function getNaturalCoordinates(e) {
+      const rect = mainImage.getBoundingClientRect();
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+
+      if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+        return null;
+      }
+
+      const displayX = clientX - rect.left;
+      const displayY = clientY - rect.top;
+      const naturalX = Math.round((displayX / rect.width) * mainImage.naturalWidth);
+      const naturalY = Math.round((displayY / rect.height) * mainImage.naturalHeight);
+
+      return { displayX, displayY, naturalX, naturalY, rect, clientX, clientY };
+    }
+
+    // Magnifier Lens Hover
+    mainImage.addEventListener('mousemove', (e) => {
+      if (!isEyedropperActive || !analysisCtx) {
+        magnifierLens.style.display = 'none';
+        return;
+      }
+
+      const coords = getNaturalCoordinates(e);
+      if (!coords) {
+        magnifierLens.style.display = 'none';
+        return;
+      }
+
+      const scaleX = analysisCanvas.width / mainImage.naturalWidth;
+      const scaleY = analysisCanvas.height / mainImage.naturalHeight;
+      const sampleX = Math.min(analysisCanvas.width - 1, Math.max(0, Math.round(coords.naturalX * scaleX)));
+      const sampleY = Math.min(analysisCanvas.height - 1, Math.max(0, Math.round(coords.naturalY * scaleY)));
+
+      const pixel = analysisCtx.getImageData(sampleX, sampleY, 1, 1).data;
+      const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+
+      magnifierLens.style.display = 'block';
+      magnifierLens.style.left = `${coords.displayX}px`;
+      magnifierLens.style.top = `${coords.displayY - 60}px`;
+      magnifierLens.style.backgroundColor = hex;
+      magnifierBadge.textContent = hex;
+    });
+
+    mainImage.addEventListener('mouseleave', () => {
+      magnifierLens.style.display = 'none';
+    });
+
+    // Eyedropper Click: Spawns Draggable Floating Mini-Popup
+    mainImage.addEventListener('click', (e) => {
+      if (!isEyedropperActive || !analysisCtx) return;
+
+      const coords = getNaturalCoordinates(e);
+      if (!coords) return;
+
+      // Close palette highlight panel if open
+      closePaletteHighlightPanel();
+
+      const scaleX = analysisCanvas.width / mainImage.naturalWidth;
+      const scaleY = analysisCanvas.height / mainImage.naturalHeight;
+      const sampleX = Math.min(analysisCanvas.width - 1, Math.max(0, Math.round(coords.naturalX * scaleX)));
+      const sampleY = Math.min(analysisCanvas.height - 1, Math.max(0, Math.round(coords.naturalY * scaleY)));
+
+      const pixelIdx = sampleY * analysisCanvas.width + sampleX;
+      const clusterIdx = pixelClusterIndexMap ? pixelClusterIndexMap[pixelIdx] : -1;
+
+      const pixel = analysisCtx.getImageData(sampleX, sampleY, 1, 1).data;
+      
+      openSpotPopup(coords.clientX, coords.clientY, pixel[0], pixel[1], pixel[2], clusterIdx);
+    });
+
+    function openSpotPopup(clientX, clientY, r, g, b, clusterIdx) {
+      const hex = rgbToHex(r, g, b);
+      const tolerance = parseInt(spotPopupSlider.value, 10);
+
+      let matchedPaletteItem = null;
+      if (clusterIdx >= 0) {
+        matchedPaletteItem = currentPalette.find(p => p.clusterIndex === clusterIdx);
+      }
+      if (!matchedPaletteItem && currentPalette.length > 0) {
+        let minDiff = Infinity;
+        const targetLab = rgbToLab(r, g, b);
+        for (const p of currentPalette) {
+          const diff = deltaE(p.centerLab, targetLab);
+          if (diff < minDiff) {
+            minDiff = diff;
+            matchedPaletteItem = p;
+          }
+        }
+      }
+
+      const paletteRatioStr = matchedPaletteItem ? matchedPaletteItem.percent : '0.0';
+      const paletteHexStr = matchedPaletteItem ? matchedPaletteItem.hex : hex;
+
+      activeSpotResult = {
+        pickedR: r, pickedG: g, pickedB: b, pickedHex: hex,
+        clusterIdx,
+        paletteRatioStr, paletteHexStr
+      };
+
+      spotPopupCircle.style.backgroundColor = hex;
+      spotPopupRatio.textContent = `${paletteRatioStr}%`;
+      spotPopupHex.textContent = hex;
+      spotPopupMatchTag.textContent = `팔레트 ${paletteHexStr} 계열과 완벽 일치`;
+      spotSliderValText.textContent = tolerance;
+
+      const popupWidth = 260;
+      const popupHeight = 210;
+      let left = clientX + 16;
+      let top = clientY - 40;
+
+      if (left + popupWidth > window.innerWidth - 20) {
+        left = clientX - popupWidth - 16;
+      }
+      if (top + popupHeight > window.innerHeight - 20) {
+        top = window.innerHeight - popupHeight - 20;
+      }
+      if (top < 70) top = 70;
+      if (left < 20) left = 20;
+
+      spotFloatingPopup.style.left = `${left}px`;
+      spotFloatingPopup.style.top = `${top}px`;
+      spotFloatingPopup.style.display = 'flex';
+
+      renderAntiAliasedSpotMask(r, g, b, tolerance);
+      showToast(`스포이드: ${hex} (${paletteRatioStr}%) 💧`);
+    }
+
+    function closeSpotPopup() {
+      spotFloatingPopup.style.display = 'none';
+      if (activeSpotResult && activeHighlightCluster === -1) {
+        highlightCanvas.style.display = 'none';
+      }
+    }
+
+    spotPopupClose.addEventListener('click', closeSpotPopup);
+
+    spotPopupCopyBtn.addEventListener('click', () => {
+      if (activeSpotResult) {
+        navigator.clipboard.writeText(activeSpotResult.pickedHex);
+        showToast(`${activeSpotResult.pickedHex} 헥사코드가 복사되었습니다! 📋`);
+      }
+    });
+
+    spotPopupSlider.addEventListener('input', () => {
+      const tol = parseInt(spotPopupSlider.value, 10);
+      spotSliderValText.textContent = tol;
+      if (activeSpotResult) {
+        renderAntiAliasedSpotMask(activeSpotResult.pickedR, activeSpotResult.pickedG, activeSpotResult.pickedB, tol);
+      }
+    });
+
+    spotPopupMaskToggle.addEventListener('change', () => {
+      if (spotPopupMaskToggle.checked && activeSpotResult && activeSpotResult.maskCanvas) {
+        updateCanvasGeometry();
+        const ctx = highlightCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.clearRect(0, 0, highlightCanvas.width, highlightCanvas.height);
+        ctx.drawImage(activeSpotResult.maskCanvas, 0, 0, highlightCanvas.width, highlightCanvas.height);
+        highlightCanvas.style.display = 'block';
+      } else {
+        highlightCanvas.style.display = 'none';
+      }
+    });
+
+    // Draggable Floating Window Mechanics
+    let isDraggingPopup = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    spotPopupHeader.addEventListener('mousedown', (e) => {
+      if (e.target === spotPopupClose) return;
+      isDraggingPopup = true;
+      const rect = spotFloatingPopup.getBoundingClientRect();
+      dragOffsetX = e.clientX - rect.left;
+      dragOffsetY = e.clientY - rect.top;
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingPopup) return;
+      let left = e.clientX - dragOffsetX;
+      let top = e.clientY - dragOffsetY;
+
+      left = Math.max(10, Math.min(window.innerWidth - 270, left));
+      top = Math.max(60, Math.min(window.innerHeight - 230, top));
+
+      spotFloatingPopup.style.left = `${left}px`;
+      spotFloatingPopup.style.top = `${top}px`;
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDraggingPopup = false;
+    });
+
+    // ============================================================
+    // 🖼️ Process and Display Analyzed Image
+    // ============================================================
+    function processImage(imgSrc, fileName = '일러스트 이미지', isFromHistory = false) {
+      loadingOverlay.classList.add('active');
+
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        currentImageElement = img;
+        currentProcessedSrc = imgSrc;
+        currentFileName = fileName;
+
+        mainImage.src = imgSrc;
+        dropzone.style.display = 'none';
+        imageContainer.style.display = 'inline-flex';
+        floatingBar.style.display = 'flex';
+
+        metaFileName.textContent = `📄 ${fileName}`;
+
+        closeSpotPopup();
+        closePaletteHighlightPanel();
+
+        // High Accuracy Palette Analysis
+        const threshold = parseInt(thresholdSelect.value, 10);
+        const colors = analyzeImageColorsAccurate(img, threshold);
+        renderPalette(colors);
+
+        // Update canvas geometry right after image renders
+        requestAnimationFrame(() => {
+          updateCanvasGeometry();
+        });
+
+        loadingOverlay.classList.remove('active');
+
+        if (!isFromHistory) {
+          addToHistory(imgSrc, fileName, img.naturalWidth, img.naturalHeight, colors);
+        }
+      };
+
+      img.onerror = () => {
+        loadingOverlay.classList.remove('active');
+        alert('이미지를 불러오는데 실패했습니다.');
+      };
+
+      img.src = imgSrc;
+    }
+
+    // --- History Timeline Management ---
+    function addToHistory(imgSrc, title, width, height, colors) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const size = 64;
+      canvas.width = size;
+      canvas.height = size;
+      
+      const thumbImg = new Image();
+      thumbImg.onload = () => {
+        const minSide = Math.min(thumbImg.naturalWidth, thumbImg.naturalHeight);
+        const sx = (thumbImg.naturalWidth - minSide) / 2;
+        const sy = (thumbImg.naturalHeight - minSide) / 2;
+        ctx.drawImage(thumbImg, sx, sy, minSide, minSide, 0, 0, size, size);
+        const thumbDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+        const item = {
+          id: Date.now(),
+          title: title,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          fullSrc: imgSrc,
+          thumb: thumbDataUrl,
+          width: width,
+          height: height,
+          colors: colors
+        };
+
+        historyItems.unshift(item);
+        if (historyItems.length > MAX_HISTORY) {
+          historyItems.pop();
+        }
+
+        saveHistoryToStorage();
+        renderHistoryList(item.id);
+      };
+      thumbImg.src = imgSrc;
+    }
+
+    function saveHistoryToStorage() {
+      try {
+        const minimal = historyItems.map(h => ({
+          id: h.id,
+          title: h.title,
+          time: h.time,
+          thumb: h.thumb,
+          fullSrc: h.fullSrc.length < 500000 ? h.fullSrc : h.thumb,
+          width: h.width,
+          height: h.height,
+          colors: h.colors
+        }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal));
+      } catch (e) {
+        console.warn('Storage quota exceeded', e);
+      }
+    }
+
+    function loadHistoryFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          historyItems = JSON.parse(raw);
+        }
+      } catch (e) {
+        historyItems = [];
+      }
+      renderHistoryList();
+    }
+
+    function renderHistoryList(activeId = null) {
+      historyCount.textContent = historyItems.length;
+
+      if (historyItems.length === 0) {
+        historyEmpty.style.display = 'block';
+        historyList.innerHTML = '';
+        historyList.appendChild(historyEmpty);
+        return;
+      }
+
+      historyEmpty.style.display = 'none';
+      historyList.innerHTML = '';
+
+      historyItems.forEach(item => {
+        const el = document.createElement('div');
+        el.className = `history-item ${activeId === item.id ? 'active' : ''}`;
+        
+        const miniSlices = item.colors.slice(0, 4).map(c => 
+          `<div class="history-mini-slice" style="width: ${c.percent}%; background-color: ${c.hex};"></div>`
+        ).join('');
+
+        el.innerHTML = `
+          <img class="history-thumb" src="${item.thumb}" alt="썸네일" />
+          <div class="history-info">
+            <div class="history-title" title="${item.title}">${item.title}</div>
+            <div class="history-time">${item.time} · ${item.width}×${item.height}</div>
+            <div class="history-mini-palette">${miniSlices}</div>
+          </div>
+          <button class="history-delete-btn" title="삭제">✕</button>
+        `;
+
+        el.addEventListener('click', (e) => {
+          if (e.target.classList.contains('history-delete-btn')) {
+            e.stopPropagation();
+            historyItems = historyItems.filter(h => h.id !== item.id);
+            saveHistoryToStorage();
+            renderHistoryList();
+            return;
+          }
+
+          document.querySelectorAll('.history-item').forEach(h => h.classList.remove('active'));
+          el.classList.add('active');
+          currentRawImageSrc = item.fullSrc;
+          processImage(item.fullSrc, item.title, true);
+        });
+
+        historyList.appendChild(el);
+      });
+    }
+
+    // ============================================================
+    // ➕ Add Image Modal Logic
+    // ============================================================
+    function openAddModal() {
+      addModal.classList.add('open');
+    }
+
+    function closeAddModal() {
+      addModal.classList.remove('open');
+    }
+
+    openAddModalBtn.addEventListener('click', openAddModal);
+    addModalCloseBtn.addEventListener('click', closeAddModal);
+
+    modalBrowseBtn.addEventListener('click', () => modalFileInput.click());
+    modalDropzone.addEventListener('click', () => modalFileInput.click());
+
+    modalFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        closeAddModal();
+        handleFile(e.target.files[0]);
+        modalFileInput.value = '';
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      modalDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        modalDropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      modalDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        modalDropzone.classList.remove('dragover');
+      });
+    });
+
+    modalDropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      if (dt.files && dt.files[0]) {
+        closeAddModal();
+        handleFile(dt.files[0]);
+      }
+    });
+
+    // ============================================================
+    // ✂️ Image Editor (Cropper) Integration
+    // ============================================================
+    function openImageEditor(imgSrc, fileName) {
+      currentRawImageSrc = imgSrc;
+      currentFileName = fileName;
+      flipHState = 1;
+
+      editorImageToCrop.src = imgSrc;
+      editorModal.classList.add('open');
+
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+
+      ratioBtns.forEach(btn => btn.classList.remove('active'));
+      document.getElementById('ratioFreeBtn').classList.add('active');
+
+      editorImageToCrop.onload = () => {
+        cropper = new Cropper(editorImageToCrop, {
+          aspectRatio: NaN,
+          viewMode: 1,
+          autoCropArea: 0.9,
+          background: false,
+          responsive: true,
+          guides: true,
+          center: true,
+          highlight: false,
+          cropBoxMovable: true,
+          cropBoxResizable: true,
+        });
+      };
+    }
+
+    function closeImageEditor() {
+      editorModal.classList.remove('open');
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+    }
+
+    editorCloseBtn.addEventListener('click', closeImageEditor);
+
+    rotateLeftBtn.addEventListener('click', () => {
+      if (cropper) cropper.rotate(-90);
+    });
+
+    rotateRightBtn.addEventListener('click', () => {
+      if (cropper) cropper.rotate(90);
+    });
+
+    flipHBtn.addEventListener('click', () => {
+      if (cropper) {
+        flipHState = -flipHState;
+        cropper.scaleX(flipHState);
+      }
+    });
+
+    resetCropBtn.addEventListener('click', () => {
+      if (cropper) cropper.reset();
+    });
+
+    ratioBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        ratioBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const ratioAttr = btn.getAttribute('data-ratio');
+        const ratio = ratioAttr === 'free' ? NaN : parseFloat(ratioAttr);
+        if (cropper) {
+          cropper.setAspectRatio(ratio);
+        }
+      });
+    });
+
+    skipEditBtn.addEventListener('click', () => {
+      closeImageEditor();
+      if (currentRawImageSrc) {
+        processImage(currentRawImageSrc, currentFileName, false);
+      }
+    });
+
+    applyEditBtn.addEventListener('click', () => {
+      if (!cropper) return;
+      const croppedCanvas = cropper.getCroppedCanvas({
+        maxWidth: 2400,
+        maxHeight: 2400,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+      });
+
+      if (!croppedCanvas) {
+        alert('이미지를 편집할 수 없습니다.');
+        return;
+      }
+
+      const croppedDataUrl = croppedCanvas.toDataURL('image/png');
+      closeImageEditor();
+      processImage(croppedDataUrl, currentFileName + ' (편집됨)', false);
+    });
+
+    reEditBtn.addEventListener('click', () => {
+      if (currentProcessedSrc || currentRawImageSrc) {
+        openImageEditor(currentProcessedSrc || currentRawImageSrc, currentFileName);
+      }
+    });
+
+    // --- File Handling ---
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        alert('이미지 파일만 업로드할 수 있습니다.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        openImageEditor(e.target.result, file.name);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    if (changeImgBtn) changeImgBtn.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        handleFile(e.target.files[0]);
+        fileInput.value = '';
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropArea.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+      });
+    });
+
+    dropArea.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      if (dt.files && dt.files[0]) {
+        handleFile(dt.files[0]);
+      }
+    });
+
+    // Global Clipboard Paste (Ctrl + V)
+    window.addEventListener('paste', (e) => {
+      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+      for (const item of items) {
+        if (item.type.indexOf('image') !== -1) {
+          const file = item.getAsFile();
+          closeAddModal();
+          handleFile(file);
+          break;
+        }
+      }
+    });
+
+    thresholdSelect.addEventListener('change', () => {
+      if (currentImageElement) {
+        const threshold = parseInt(thresholdSelect.value, 10);
+        const colors = analyzeImageColorsAccurate(currentImageElement, threshold);
+        renderPalette(colors);
+      }
+    });
+
+    // ⭐️ Window resize handler: Re-synchronize exact canvas geometry to prevent distortion!
+    window.addEventListener('resize', () => {
+      updateCanvasGeometry();
+      if (highlightCanvas.style.display !== 'none') {
+        if (activeHighlightCluster >= 0) {
+          renderAntiAliasedClusterMask(activeHighlightCluster);
+        } else if (activeSpotResult && activeSpotResult.maskCanvas) {
+          const ctx = highlightCanvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.clearRect(0, 0, highlightCanvas.width, highlightCanvas.height);
+          ctx.drawImage(activeSpotResult.maskCanvas, 0, 0, highlightCanvas.width, highlightCanvas.height);
+        }
+      }
+    });
+
+    // --- Sample Illustration Generator ---
+    sampleBtn.addEventListener('click', () => {
+      const c = document.createElement('canvas');
+      c.width = 640;
+      c.height = 480;
+      const ctx = c.getContext('2d');
+
+      // Sky gradient
+      const grad = ctx.createLinearGradient(0, 0, 0, 480);
+      grad.addColorStop(0, '#fed7aa');
+      grad.addColorStop(0.5, '#f472b6');
+      grad.addColorStop(1, '#6366f1');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 640, 480);
+
+      // Bright Sun
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(320, 200, 75, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Deep mountains
+      ctx.fillStyle = '#312e81';
+      ctx.beginPath();
+      ctx.moveTo(0, 480);
+      ctx.lineTo(160, 240);
+      ctx.lineTo(360, 480);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#4338ca';
+      ctx.beginPath();
+      ctx.moveTo(220, 480);
+      ctx.lineTo(440, 210);
+      ctx.lineTo(640, 480);
+      ctx.closePath();
+      ctx.fill();
+
+      // Mint Hill
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.ellipse(320, 460, 360, 90, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const sampleDataUrl = c.toDataURL('image/png');
+      openImageEditor(sampleDataUrl, '샘플 일러스트 아트.png');
+    });
+
+    // Initialize history on load
+    loadHistoryFromStorage();
+  </script>
+</body>
+</html>
